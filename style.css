@@ -1,0 +1,111 @@
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #87ceeb;
+  font-family: Arial, sans-serif;
+}
+
+canvas {
+  display: block;
+}
+
+#menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background: #0007;
+  color: white;
+  z-index: 5;
+  text-align: center;
+}
+
+h1 {
+  font-size: clamp(28px, 6vw, 52px);
+  color: white;
+  text-shadow: 3px 4px #35452d;
+}
+
+button {
+  padding: 12px 22px;
+  background: #4c9b35;
+  color: white;
+  border: 2px solid white;
+  border-radius: 5px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #70b94c;
+}
+
+#hud {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  color: white;
+  text-shadow: 1px 2px black;
+  display: none;
+  z-index: 2;
+  line-height: 1.7;
+}
+
+#cross {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 28px;
+  pointer-events: none;
+}
+
+#bar {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  gap: 5px;
+}
+
+.slot {
+  background: #333b;
+  color: white;
+  border: 2px solid white;
+  padding: 10px;
+  font-size: 12px;
+}
+
+.slot.active {
+  background: #709e43;
+  border: 3px solid yellow;
+}
+
+#hint {
+  position: fixed;
+  bottom: 85px;
+  left: 10px;
+  color: white;
+  text-shadow: 1px 2px black;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .slot {
+    padding: 7px 4px;
+    font-size: 10px;
+  }
+
+  #hint {
+    font-size: 11px;
+  }
+}
