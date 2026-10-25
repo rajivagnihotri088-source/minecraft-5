@@ -1,0 +1,290 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini Minecraft</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#87ceeb;font-family:Arial}
+canvas{display:block}
+#menu{position:fixed;inset:0;display:flex;align-items:center;
+justify-content:center;flex-direction:column;background:#0007;color:white;
+z-index:5;text-align:center}
+button{padding:12px 22px;background:#4c9b35;color:white;
+border:2px solid white;border-radius:5px;font-size:17px;cursor:pointer}
+#hud{position:fixed;top:10px;left:10px;color:white;
+text-shadow:1px 2px black;display:none;z-index:2;line-height:1.7}
+#cross{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+color:white;font-size:28px;pointer-events:none}
+#bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
+display:none;gap:5px}
+.slot{background:#333b;color:white;border:2px solid white;
+padding:10px;font-size:12px}
+.slot.active{background:#709e43}
+#hint{position:fixed;bottom:85px;left:10px;color:white;
+text-shadow:1px 2px black;font-size:13px}
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <h1>⛏ MINI MINECRAFT</h1>
+  <p>3D World • Trees • Village • Mining</p>
+  <button id="start">PLAY GAME</button>
+  <p>WASD: Move | Mouse: Look | Space: Jump</p>
+  <p>Click: Mine | Right-click: Build | 1-5: Select block</p>
+</div>
+
+<div id="hud">❤️ Health: 20<br>📍 Village Spawn<br>
+🎒 <span id="count">Blocks: 30</span></div>
+<div id="cross">+</div>
+<div id="hint">WASD Move · Space Jump · Click Mine · Right Click Build</div>
+<div id="bar"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  if(!window.THREE){
+    document.querySelector('#menu').innerHTML=
+      '<h2>Three.js load nahi hua</h2><p>Internet on karke page reload karo.</p>';
+    return;
+  }
+
+  const scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x87ceeb);
+  scene.fog=new THREE.Fog(0x87ceeb,25,75);
+
+  const camera=new THREE.PerspectiveCamera(
+    75,innerWidth/innerHeight,0.1,150
+  );
+  const renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  document.body.appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0xffffff,0x667744,2));
+  const sun=new THREE.DirectionalLight(0xffffff,2);
+  sun.position.set(15,30,10);
+  scene.add(sun);
+
+  const materials={
+    grass:new THREE.MeshLambertMaterial({color:0x55a83b}),
+    dirt:new THREE.MeshLambertMaterial({color:0x80552f}),
+    stone:new THREE.MeshLambertMaterial({color:0x888888}),
+    wood:new THREE.MeshLambertMaterial({color:0x80502c}),
+    leaves:new THREE.MeshLambertMaterial({color:0x237333}),
+    planks:new THREE.MeshLambertMaterial({color:0xb88b52}),
+    roof:new THREE.MeshLambertMaterial({color:0x984334}),
+    water:new THREE.MeshLambertMaterial({color:0x268fe0}),
+    gold:new THREE.MeshLambertMaterial({color:0xffd52a}),
+    iron:new THREE.MeshLambertMaterial({color:0xd0b5a0}),
+    diamond:new THREE.MeshLambertMaterial({color:0x36e9df})
+  };
+
+  const cube=new THREE.BoxGeometry(1,1,1);
+  const blocks=new Map();
+  const meshes=[];
+  const blockKey=(x,y,z)=>`${x},${y},${z}`;
+  let selected='grass';
+  let count=30;
+  let playing=false;
+  let yaw=0,pitch=0,vy=0,onGround=false;
+  const player={x:0,y:3,z:5};
+  const keys={};
+
+  function addBlock(x,y,z,type){
+    const k=blockKey(x,y,z);
+    if(blocks.has(k))return null;
+    const mesh=new THREE.Mesh(cube,materials[type]||materials.dirt);
+    mesh.position.set(x,y,z);
+    mesh.userData={x,y,z,type};
+    mesh.castShadow=true;
+    scene.add(mesh);
+    blocks.set(k,mesh);
+    meshes.push(mesh);
+    return mesh;
+  }
+
+  // Flat world and underground
+  for(let x=-25;x<=25;x++){
+    for(let z=-25;z<=25;z++){
+      addBlock(x,-2,z,'stone');
+      addBlock(x,-1,z,'dirt');
+      addBlock(x,0,z,'grass');
+    }
+  }
+
+  // Simple village houses
+  function house(cx,cz){
+    for(let x=-3;x<=3;x++){
+      for(let z=-3;z<=3;z++){
+        addBlock(cx+x,1,cz+z,'planks');
+      }
+    }
+    for(let y=2;y<=4;y++){
+      for(let n=-3;n<=3;n++){
+        if(!(n===0&&y<=3)){
+          addBlock(cx+n,y,cz-3,'planks');
+          addBlock(cx+n,y,cz+3,'planks');
+        }
+        addBlock(cx-3,y,cz+n,'planks');
+        addBlock(cx+3,y,cz+n,'planks');
+      }
+    }
+    for(let n=-3;n<=3;n++){
+      addBlock(cx+n,5,cz-3,'roof');
+      addBlock(cx+n,5,cz+3,'roof');
+    }
+    for(let n=-2;n<=2;n++){
+      addBlock(cx-2,6,cz+n,'roof');
+      addBlock(cx+2,6,cz+n,'roof');
+    }
+    addBlock(cx,2,cz,'wood');
+  }
+  house(-9,-9);
+  house(9,-9);
+  house(-9,9);
+  house(9,9);
+
+  // Trees
+  function tree(x,z){
+    for(let y=1;y<=4;y++)addBlock(x,y,z,'wood');
+    for(let dx=-2;dx<=2;dx++){
+      for(let dz=-2;dz<=2;dz++){
+        for(let y=3;y<=5;y++){
+          if(Math.abs(dx)+Math.abs(dz)<4)
+            addBlock(x+dx,y,z+dz,'leaves');
+        }
+      }
+    }
+  }
+  [[-17,-15],[17,-16],[-18,15],[18,16],[-20,0],[20,0]]
+    .forEach(p=>tree(p[0],p[1]));
+
+  // Ores outside village
+  for(let i=0;i<100;i++){
+    const x=Math.floor(Math.random()*40-20);
+    const z=Math.floor(Math.random()*40-20);
+    if(Math.abs(x)<12&&Math.abs(z)<12)continue;
+    const types=['stone','iron','gold','diamond'];
+    addBlock(x,-1,z,types[Math.floor(Math.random()*types.length)]);
+  }
+
+  const hotbar=['grass','dirt','stone','wood','planks'];
+  const bar=document.querySelector('#bar');
+  function drawBar(){
+    bar.innerHTML='';
+    hotbar.forEach((name,i)=>{
+      const b=document.createElement('button');
+      b.className='slot'+(name===selected?' active':'');
+      b.textContent=(i+1)+' '+name;
+      b.onclick=()=>{selected=name;drawBar()};
+      bar.appendChild(b);
+    });
+  }
+  drawBar();
+
+  document.querySelector('#start').onclick=()=>{
+    playing=true;
+    document.querySelector('#menu').style.display='none';
+    document.querySelector('#hud').style.display='block';
+    bar.style.display='flex';
+    renderer.domElement.requestPointerLock();
+  };
+
+  document.addEventListener('pointerlockchange',()=>{
+    if(document.pointerLockElement!==renderer.domElement&&playing){
+      document.querySelector('#menu').style.display='flex';
+      document.querySelector('#menu h1').textContent='Game Paused';
+    }else if(document.pointerLockElement===renderer.domElement){
+      document.querySelector('#menu').style.display='none';
+    }
+  });
+
+  document.addEventListener('mousemove',e=>{
+    if(!playing||document.pointerLockElement!==renderer.domElement)return;
+    yaw-=e.movementX*.002;
+    pitch-=e.movementY*.002;
+    pitch=Math.max(-1.5,Math.min(1.5,pitch));
+  });
+
+  document.addEventListener('keydown',e=>{
+    keys[e.code]=true;
+    if(e.code.startsWith('Digit')){
+      const i=Number(e.code.slice(5))-1;
+      if(hotbar[i]){selected=hotbar[i];drawBar()}
+    }
+  });
+  document.addEventListener('keyup',e=>keys[e.code]=false);
+  document.addEventListener('contextmenu',e=>e.preventDefault());
+
+  const ray=new THREE.Raycaster();
+  function getHit(){
+    ray.setFromCamera(new THREE.Vector2(0,0),camera);
+    const hits=ray.intersectObjects(meshes,false);
+    return hits.length&&hits[0].distance<6?hits[0]:null;
+  }
+
+  document.addEventListener('mousedown',e=>{
+    if(!playing||document.pointerLockElement!==renderer.domElement)return;
+    const hit=getHit();
+    if(!hit)return;
+
+    if(e.button===0){
+      const obj=hit.object;
+      blocks.delete(blockKey(obj.userData.x,obj.userData.y,obj.userData.z));
+      scene.remove(obj);
+      const i=meshes.indexOf(obj);
+      if(i>=0)meshes.splice(i,1);
+      count++;
+    }else if(e.button===2){
+      if(count<=0)return;
+      const p=hit.object.position.clone().add(hit.face.normal);
+      const x=Math.round(p.x),y=Math.round(p.y),z=Math.round(p.z);
+      if(Math.hypot(x-player.x,z-player.z)>1.2&&y>=1){
+        if(addBlock(x,y,z,selected))count--;
+      }
+    }
+    document.querySelector('#count').textContent='Blocks: '+count;
+  });
+
+  const clock=new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt=Math.min(clock.getDelta(),.04);
+
+    if(playing){
+      const speed=5*dt;
+      const fx=-Math.sin(yaw),fz=-Math.cos(yaw);
+      const rx=Math.cos(yaw),rz=-Math.sin(yaw);
+      if(keys.KeyW){player.x+=fx*speed;player.z+=fz*speed}
+      if(keys.KeyS){player.x-=fx*speed;player.z-=fz*speed}
+      if(keys.KeyA){player.x-=rx*speed;player.z-=rz*speed}
+      if(keys.KeyD){player.x+=rx*speed;player.z+=rz*speed}
+
+      if(keys.Space&&onGround){vy=7;onGround=false}
+      vy-=18*dt;
+      player.y+=vy*dt;
+      if(player.y<2){player.y=2;vy=0;onGround=true}
+
+      player.x=THREE.MathUtils.clamp(player.x,-24,24);
+      player.z=THREE.MathUtils.clamp(player.z,-24,24);
+      camera.position.set(player.x,player.y+0.4,player.z);
+      camera.rotation.order='YXZ';
+      camera.rotation.set(pitch,yaw,0);
+    }
+    renderer.render(scene,camera);
+  }
+  animate();
+
+  addEventListener('resize',()=>{
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+  });
+})();
+</script>
+</body>
+</html>
